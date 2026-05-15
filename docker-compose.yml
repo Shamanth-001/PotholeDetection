@@ -1,0 +1,76 @@
+version: '3.9'
+
+services:
+  # PostgreSQL with PostGIS
+  postgres:
+    image: postgis/postgis:15-3.4
+    container_name: civiclens-db
+    environment:
+      POSTGRES_DB: civiclens
+      POSTGRES_USER: civiclens_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-civiclens_secure_2024}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/migrations/000_full_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql
+      - ./backend/seeds/001_seed_data.sql:/docker-entrypoint-initdb.d/002_seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U civiclens_user -d civiclens"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Node.js Backend
+  backend:
+    build: ./backend
+    container_name: civiclens-backend
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://civiclens_user:${DB_PASSWORD:-civiclens_secure_2024}@postgres:5432/civiclens
+      AI_SERVICE_URL: http://ai-service:8000
+      JWT_SECRET: ${JWT_SECRET:-civiclens-jwt-secret-dev-2024}
+      PORT: 3001
+      CORS_ORIGIN: http://localhost:5173
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - upload_data:/app/uploads
+
+  # Python AI Microservice (mock mode by default)
+  ai-service:
+    build: ./ai-service
+    container_name: civiclens-ai
+    environment:
+      MODEL_PATH: /app/models/civic_yolov8.pt
+      CONFIDENCE_THRESHOLD: 0.7
+      PORT: 8000
+      MOCK_MODE: "false"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ai-service:/app
+
+  # React Frontend (Vite dev server)
+  frontend:
+    build: ./frontend
+    container_name: civiclens-frontend
+    environment:
+      VITE_API_URL: http://localhost:3001/api
+      VITE_MAP_TILE_URL: https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
+  upload_data:
