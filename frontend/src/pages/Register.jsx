@@ -20,7 +20,7 @@ export default function Register() {
     try {
       const res = await api.post('/auth/register', { ...form, role: 'citizen' });
       login(res.data.data.user, res.data.data.token);
-      toast.success('Account created! Welcome to Namma Bengaluru Clean');
+      toast.success('Account created! Welcome to Namma Clean Bengaluru');
       navigate('/dashboard');
     } catch (err) { toast.error(err.response?.data?.message || 'Registration failed'); }
     finally { setLoading(false); }
@@ -32,7 +32,7 @@ export default function Register() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Top bar */}
       <div className="bg-white border-b border-gray-200 h-16 flex items-center px-6">
-        <Link to="/" className="text-xl font-bold text-gov-900">Namma Bengaluru Clean</Link>
+        <Link to="/" className="text-xl font-bold text-gov-900">Namma Clean Bengaluru</Link>
       </div>
 
       <div className="flex-1 flex items-center justify-center px-4 py-12">

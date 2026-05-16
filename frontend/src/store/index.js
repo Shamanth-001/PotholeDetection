@@ -53,3 +53,25 @@ export const useReportStore = create((set) => ({
   showDuplicate: (report) => set({ showDuplicateModal: true, duplicateReport: report }),
   closeDuplicate: () => set({ showDuplicateModal: false, duplicateReport: null }),
 }));
+
+export const useUIStore = create((set) => ({
+  language: localStorage.getItem('civiclens_lang') || 'en',
+  setLanguage: (lang) => {
+    localStorage.setItem('civiclens_lang', lang);
+    set({ language: lang });
+  },
+}));
+
+export const useNotificationStore = create((set) => ({
+  notifications: [
+    { id: 1, title: 'Report Verified', desc: 'Your report in Koramangala has been verified.', time: '2m ago', type: 'success', read: false },
+    { id: 2, title: 'Welcome to Namma Clean!', desc: 'Start by reporting an issue near you.', time: '1h ago', type: 'info', read: true },
+  ],
+  addNotification: (n) => set((state) => ({ 
+    notifications: [{ id: Date.now(), time: 'Just now', read: false, ...n }, ...state.notifications] 
+  })),
+  markAllRead: () => set((state) => ({
+    notifications: state.notifications.map(n => ({ ...n, read: true }))
+  })),
+}));
+

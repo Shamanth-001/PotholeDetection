@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useReportStore, useMapStore } from '../store';
+import { useReportStore, useMapStore, useUIStore } from '../store';
 import api from '../services/api';
 import { Plus, Filter, X, Layers } from 'lucide-react';
 import { ISSUE_TYPES, STATUS_OPTIONS, getIssueColor } from '../utils/constants';
@@ -10,8 +10,17 @@ import DuplicateWarningModal from '../components/reports/DuplicateWarningModal';
 export default function MapView() {
   const { reports, setReports, showSubmitModal, openSubmitModal, showDuplicateModal } = useReportStore();
   const { filters, setFilter, clearFilters, toggleHeatmap, showHeatmap } = useMapStore();
+  const { language } = useUIStore();
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const labels = {
+    filters: language === 'en' ? 'Filters' : 'ಫಿಲ್ಟರ್‌ಗಳು',
+    heatmap: language === 'en' ? 'Heatmap' : 'ಹೀಟ್‌ಮ್ಯಾಪ್',
+    clearAll: language === 'en' ? 'Clear all' : 'ಎಲ್ಲವನ್ನೂ ಅಳಿಸಿ',
+    issueType: language === 'en' ? 'Issue Type' : 'ಸಮಸ್ಯೆಯ ವಿಧ',
+    status: language === 'en' ? 'Status' : 'ಸ್ಥಿತಿ',
+  };
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -37,14 +46,14 @@ export default function MapView() {
         <button onClick={() => setShowFilters(!showFilters)}
           className="gov-card px-4 py-3 flex items-center gap-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer">
           <Filter className="w-4 h-4" />
-          Filters
+          {labels.filters}
           {activeFilterCount > 0 && <span className="w-5 h-5 rounded-full bg-gov-700 text-white text-xs flex items-center justify-center">{activeFilterCount}</span>}
         </button>
 
         <button onClick={toggleHeatmap}
           className={`gov-card px-4 py-3 flex items-center gap-2 text-sm font-medium transition-colors cursor-pointer ${showHeatmap ? 'text-amber-700 bg-amber-50 border-amber-200' : 'text-gray-700 hover:bg-gray-50'}`}>
           <Layers className="w-4 h-4" />
-          Heatmap
+          {labels.heatmap}
         </button>
       </div>
 
@@ -52,16 +61,16 @@ export default function MapView() {
       {showFilters && (
         <div className="absolute top-4 left-4 z-[1001] w-72 gov-card p-5 mt-24">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900">Filters</h3>
+            <h3 className="font-semibold text-gray-900">{labels.filters}</h3>
             <div className="flex items-center gap-2">
-              {activeFilterCount > 0 && <button onClick={clearFilters} className="text-xs text-gov-700 hover:text-gov-900">Clear all</button>}
+              {activeFilterCount > 0 && <button onClick={clearFilters} className="text-xs text-gov-700 hover:text-gov-900">{labels.clearAll}</button>}
               <button onClick={() => setShowFilters(false)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
             </div>
           </div>
 
           {/* Issue type */}
           <div className="mb-4">
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">Issue Type</label>
+            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">{labels.issueType}</label>
             <div className="space-y-1">
               {ISSUE_TYPES.map(t => (
                 <button key={t.value} onClick={() => setFilter('issue_type', filters.issue_type === t.value ? null : t.value)}
@@ -69,7 +78,7 @@ export default function MapView() {
                     filters.issue_type === t.value ? 'bg-gov-50 text-gov-900 font-medium' : 'text-gray-600 hover:bg-gray-50'
                   }`}>
                   <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: t.color }} />
-                  {t.label}
+                  {language === 'en' ? t.label : t.label_kn}
                 </button>
               ))}
             </div>
@@ -77,14 +86,14 @@ export default function MapView() {
 
           {/* Status */}
           <div>
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">Status</label>
+            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">{labels.status}</label>
             <div className="flex flex-wrap gap-1.5">
               {STATUS_OPTIONS.slice(0, 6).map(s => (
                 <button key={s.value} onClick={() => setFilter('status', filters.status === s.value ? null : s.value)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
                     filters.status === s.value ? 'border-gov-400 bg-gov-50 text-gov-900' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
                   }`}>
-                  {s.label}
+                  {language === 'en' ? s.label : s.label_kn}
                 </button>
               ))}
             </div>

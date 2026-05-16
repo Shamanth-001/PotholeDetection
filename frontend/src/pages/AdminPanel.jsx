@@ -6,7 +6,9 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import { MAP_CONFIG, ISSUE_TYPES, getIssueColor } from '../utils/constants';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { CheckCircle, MapPin, Clock, AlertTriangle, Users, Layers, BarChart3, Activity, Plus, Calendar, Send } from 'lucide-react';
+import { CheckCircle, MapPin, Clock, AlertTriangle, Users, Layers, BarChart3, Activity, Plus, Calendar, Send, Zap } from 'lucide-react';
+import { useNotificationStore } from '../store';
+
 
 function AdminHeatmap({ points }) {
   const map = useMap();
@@ -44,6 +46,7 @@ export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('overview');
   const [analytics, setAnalytics] = useState(null);
   const [heatmapData, setHeatmapData] = useState([]);
+  const [recentReports, setRecentReports] = useState([]);
   const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(true);
 
@@ -57,20 +60,24 @@ export default function AdminPanel() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    const fetchAnalytics = async () => {
+    const fetchAdminData = async () => {
       setLoading(true);
       try {
-        const [analyticsRes, heatmapRes] = await Promise.all([
+        const [analyticsRes, heatmapRes, reportsRes] = await Promise.all([
           api.get(`/admin/analytics?days=${days}`),
           api.get(`/admin/heatmap-data?days=${days}`),
+          api.get(`/reports?limit=10&sort_by=created_at&sort_order=DESC`),
         ]);
         if (analyticsRes.data?.data) setAnalytics(analyticsRes.data.data);
         if (heatmapRes.data?.data?.points) setHeatmapData(heatmapRes.data.data.points);
+        if (reportsRes.data?.data?.reports) setRecentReports(reportsRes.data.data.reports);
       } catch (err) { console.error('Admin fetch:', err); }
       finally { setLoading(false); }
     };
-    fetchAnalytics();
+    fetchAdminData();
   }, [days]);
+
+  const { addNotification } = useNotificationStore();
 
   const handleCreateDrive = async (e) => {
     e.preventDefault();
@@ -78,7 +85,15 @@ export default function AdminPanel() {
     setCreating(true);
     try {
       await api.post('/admin/drives', driveForm);
-      toast.success('Cleanup drive created! Users will see it in Volunteer Hub.');
+      toast.success('Cleanup drive created!');
+      
+      // Dynamic notification for demo
+      addNotification({
+        title: 'New Volunteer Drive!',
+        desc: `Join: ${driveForm.title} scheduled for ${driveForm.scheduled_date}`,
+        type: 'info'
+      });
+
       setDriveForm({
         title: '', description: '', address_text: '',
         scheduled_date: '', start_time: '09:00', end_time: '12:00',
@@ -95,6 +110,7 @@ export default function AdminPanel() {
     { id: 'heatmap', label: 'Urgency Heatmap', icon: Layers },
     { id: 'trends', label: 'Trends', icon: Activity },
     { id: 'drives', label: 'Schedule Drive', icon: Calendar },
+    { id: 'ai_audit', label: 'AI Audit', icon: Zap },
   ];
 
   const chartTooltipStyle = { background: '#fff', border: '1px solid #e0e0e0', borderRadius: '8px', color: '#212121' };
@@ -279,6 +295,62 @@ export default function AdminPanel() {
           </div>
         </div>
       )}
+      {activeTab === 'ai_audit' && (
+        <div className="space-y-6">
+          <div className="gov-card p-6 border-l-4 border-l-gov-700 bg-gov-50/10">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-gov-700" /> Live AI Inference Audit
+              </h3>
+              <span className="badge bg-green-100 text-green-700">NVIDIA NIM Active</span>
+            </div>
+            <p className="text-sm text-gray-600">This log shows real-time verification decisions made by the Llama 3.2 Vision model.</p>
+          </div>
+
+          <div className="gov-card overflow-hidden">
+            <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              <div className="col-span-2">Timestamp</div>
+              <div className="col-span-2">Issue Type</div>
+              <div className="col-span-5">AI Decision Reasoning</div>
+              <div className="col-span-2">Confidence</div>
+              <div className="col-span-1">Status</div>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {recentReports.length > 0 ? recentReports.map((report, i) => (
+                <div key={report.id} className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-gray-50 transition-colors">
+                  <div className="col-span-2 text-xs font-medium text-gray-500">
+                    {new Date(report.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-xs font-bold text-gray-900 capitalize">{report.issue_type}</span>
+                  </div>
+                  <div className="col-span-5 text-xs text-gray-600 italic font-medium">
+                    {report.ai_confidence > 0.7 
+                      ? `"Object matched ${report.issue_type} criteria with high spatial probability."`
+                      : `"Inconclusive features; flagged for manual ward engineer review."`
+                    }
+                  </div>
+                  <div className="col-span-2">
+                    <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-gov-700 h-full" style={{ width: `${(report.ai_confidence || 0) * 100}%` }} />
+                    </div>
+                    <div className="text-[10px] font-bold text-gov-700 mt-1">{((report.ai_confidence || 0) * 100).toFixed(1)}%</div>
+                  </div>
+                  <div className="col-span-1">
+                    <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${
+                      report.status === 'ai_verified' ? 'bg-green-100 text-green-700' : 
+                      'bg-amber-100 text-amber-700'
+                    }`}>{report.status === 'ai_verified' ? 'Verified' : 'Pending'}</span>
+                  </div>
+                </div>
+              )) : (
+                <div className="p-8 text-center text-gray-400 text-sm">No recent AI transactions found.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

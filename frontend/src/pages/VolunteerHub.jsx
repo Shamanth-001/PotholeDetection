@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { useAuthStore } from '../store';
+import { useAuthStore, useUIStore } from '../store';
 import { Calendar, MapPin, Users, Clock, Award, Loader2, Bell, CheckCircle } from 'lucide-react';
 
-function DriveCard({ drive, onRegister, onUnregister, userRegistered, actionLoading }) {
+function DriveCard({ drive, onRegister, onUnregister, userRegistered, actionLoading, labels }) {
   const progress = Math.min((drive.current_volunteers / drive.max_volunteers) * 100, 100);
   const isFull = drive.current_volunteers >= drive.max_volunteers;
 
@@ -30,12 +30,12 @@ function DriveCard({ drive, onRegister, onUnregister, userRegistered, actionLoad
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <MapPin className="w-4 h-4 text-gov-700" />
-          {drive.address_text || 'Location TBD'}
+          {drive.address_text || labels.locationTbd}
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <Users className="w-4 h-4 text-gov-700" />
-          {drive.current_volunteers} / {drive.max_volunteers} volunteers
-          {drive.organizer_name && <span className="text-gray-400">• Organized by {drive.organizer_name}</span>}
+          {drive.current_volunteers} / {drive.max_volunteers} {labels.volunteers}
+          {drive.organizer_name && <span className="text-gray-400">• {labels.organizedBy} {drive.organizer_name}</span>}
         </div>
       </div>
 
@@ -47,8 +47,8 @@ function DriveCard({ drive, onRegister, onUnregister, userRegistered, actionLoad
           }`} style={{ width: `${progress}%` }} />
         </div>
         <div className="flex justify-between text-xs text-gray-400 mt-1">
-          <span>{Math.round(progress)}% filled</span>
-          <span>{drive.max_volunteers - drive.current_volunteers} spots left</span>
+          <span>{Math.round(progress)}% {labels.filled}</span>
+          <span>{drive.max_volunteers - drive.current_volunteers} {labels.spotsLeft}</span>
         </div>
       </div>
 
@@ -56,14 +56,14 @@ function DriveCard({ drive, onRegister, onUnregister, userRegistered, actionLoad
       {userRegistered ? (
         <button onClick={() => onUnregister(drive.id)} disabled={actionLoading}
           className="w-full py-3 rounded-lg text-sm font-medium bg-green-50 text-green-700 border border-green-200 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
-          {actionLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</> : <><CheckCircle className="w-4 h-4" /> Registered — Click to Cancel</>}
+          {actionLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> {labels.processing}</> : <><CheckCircle className="w-4 h-4" /> {labels.registeredCancel}</>}
         </button>
       ) : (
         <button onClick={() => onRegister(drive.id)} disabled={isFull || actionLoading}
           className={`w-full py-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${
             isFull ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'btn-primary'
           }`}>
-          {actionLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Registering...</> : isFull ? 'Drive Full' : 'Register Now →'}
+          {actionLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> {labels.registering}</> : isFull ? labels.driveFull : labels.registerNow}
         </button>
       )}
     </div>
@@ -72,12 +72,34 @@ function DriveCard({ drive, onRegister, onUnregister, userRegistered, actionLoad
 
 export default function VolunteerHub() {
   const { user } = useAuthStore();
+  const { language } = useUIStore();
   const [drives, setDrives] = useState([]);
   const [certificates, setCertificates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('drives');
   const [registeredDrives, setRegisteredDrives] = useState(new Set());
   const [actionLoadingId, setActionLoadingId] = useState(null);
+
+  const labels = {
+    volunteerHub: language === 'en' ? 'Volunteer Hub' : 'ಸ್ವಯಂಸೇವಕ ಕೇಂದ್ರ',
+    hubDesc: language === 'en' ? 'Join cleanup drives organized by BBMP and earn certificates' : 'ಬಿಬಿಎಂಪಿ ಆಯೋಜಿಸಿದ ಸ್ವಚ್ಛತಾ ಡ್ರೈವ್‌ಗಳಿಗೆ ಸೇರಿ ಮತ್ತು ಪ್ರಮಾಣಪತ್ರಗಳನ್ನು ಗಳಿಸಿ',
+    activeDrives: language === 'en' ? 'Active Drives' : 'ಸಕ್ರಿಯ ಡ್ರೈವ್‌ಗಳು',
+    myCertificates: language === 'en' ? 'My Certificates' : 'ನನ್ನ ಪ್ರಮಾಣಪತ್ರಗಳು',
+    locationTbd: language === 'en' ? 'Location TBD' : 'ಸ್ಥಳ ಇನ್ನೂ ನಿಗದಿಯಾಗಿಲ್ಲ',
+    volunteers: language === 'en' ? 'volunteers' : 'ಸ್ವಯಂಸೇವಕರು',
+    organizedBy: language === 'en' ? 'Organized by' : 'ಆಯೋಜಿಸಿದವರು',
+    filled: language === 'en' ? 'filled' : 'ಭರ್ತಿಯಾಗಿದೆ',
+    spotsLeft: language === 'en' ? 'spots left' : 'ಸ್ಥಳಾವಕಾಶ ಬಾಕಿ ಇದೆ',
+    processing: language === 'en' ? 'Processing...' : 'ಪ್ರಕ್ರಿಯೆಯಲ್ಲಿದೆ...',
+    registeredCancel: language === 'en' ? 'Registered — Click to Cancel' : 'ನೋಂದಾಯಿಸಲಾಗಿದೆ — ರದ್ದುಗೊಳಿಸಲು ಕ್ಲಿಕ್ ಮಾಡಿ',
+    registering: language === 'en' ? 'Registering...' : 'ನೋಂದಾಯಿಸಲಾಗುತ್ತಿದೆ...',
+    driveFull: language === 'en' ? 'Drive Full' : 'ಡ್ರೈವ್ ಭರ್ತಿಯಾಗಿದೆ',
+    registerNow: language === 'en' ? 'Register Now →' : 'ಈಗಲೇ ನೋಂದಾಯಿಸಿ →',
+    noDrives: language === 'en' ? 'No upcoming drives. Check back later!' : 'ಯಾವುದೇ ಮುಂಬರುವ ಡ್ರೈವ್‌ಗಳಿಲ್ಲ. ನಂತರ ಪರಿಶೀಲಿಸಿ!',
+    noCertificates: language === 'en' ? 'No certificates yet. Join a drive and upload a solution photo to earn one!' : 'ಇನ್ನೂ ಯಾವುದೇ ಪ್ರಮಾಣಪತ್ರಗಳಿಲ್ಲ. ಒಂದು ಡ್ರೈವ್‌ಗೆ ಸೇರಿ ಮತ್ತು ಪ್ರಮಾಣಪತ್ರ ಗಳಿಸಲು ಫೋಟೋ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ!',
+    downloadPdf: language === 'en' ? 'Download PDF' : 'PDF ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ',
+    aiVerified: language === 'en' ? 'AI Verified' : 'AI ಪರಿಶೀಲಿಸಲಾಗಿದೆ',
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -105,10 +127,10 @@ export default function VolunteerHub() {
     setActionLoadingId(driveId);
     try {
       await api.post(`/volunteer/drives/${driveId}/register`);
-      toast.success('Registered! +5 points');
+      toast.success(language === 'en' ? 'Registered! +5 points' : 'ನೋಂದಾಯಿಸಲಾಗಿದೆ! +5 ಪಾಯಿಂಟ್ಸ್');
       setRegisteredDrives(prev => new Set(prev).add(driveId));
       setDrives(prev => prev.map(d => d.id === driveId ? { ...d, current_volunteers: d.current_volunteers + 1 } : d));
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
+    } catch (err) { toast.error(err.response?.data?.message || (language === 'en' ? 'Failed' : 'ವಿಫಲವಾಗಿದೆ')); }
     finally { setActionLoadingId(null); }
   };
 
@@ -117,10 +139,10 @@ export default function VolunteerHub() {
     setActionLoadingId(driveId);
     try {
       await api.post(`/volunteer/drives/${driveId}/unregister`);
-      toast.success('Registration cancelled');
+      toast.success(language === 'en' ? 'Registration cancelled' : 'ನೋಂದಣಿ ರದ್ದುಗೊಳಿಸಲಾಗಿದೆ');
       setRegisteredDrives(prev => { const s = new Set(prev); s.delete(driveId); return s; });
       setDrives(prev => prev.map(d => d.id === driveId ? { ...d, current_volunteers: Math.max(d.current_volunteers - 1, 0) } : d));
-    } catch (err) { toast.error('Failed to cancel'); }
+    } catch (err) { toast.error(language === 'en' ? 'Failed to cancel' : 'ರದ್ದುಗೊಳಿಸಲು ವಿಫಲವಾಗಿದೆ'); }
     finally { setActionLoadingId(null); }
   };
 
@@ -129,15 +151,15 @@ export default function VolunteerHub() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Bell className="w-6 h-6 text-gov-700" /> Volunteer Hub
+            <Bell className="w-6 h-6 text-gov-700" /> {labels.volunteerHub}
           </h1>
-          <p className="text-gray-500 mt-1">Join cleanup drives organized by BBMP and earn certificates</p>
+          <p className="text-gray-500 mt-1">{labels.hubDesc}</p>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-8">
-        {[{ id: 'drives', label: 'Active Drives', icon: Users }, { id: 'certificates', label: 'My Certificates', icon: Award }].map(tab => (
+        {[{ id: 'drives', label: labels.activeDrives, icon: Users }, { id: 'certificates', label: labels.myCertificates, icon: Award }].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-medium transition-all ${
               activeTab === tab.id ? 'bg-gov-900 text-white' : 'text-gray-500 hover:bg-gray-100 border border-gray-200'
@@ -155,10 +177,10 @@ export default function VolunteerHub() {
             drives.map(drive => (
               <DriveCard key={drive.id} drive={drive} userRegistered={registeredDrives.has(drive.id)}
                 onRegister={handleRegister} onUnregister={handleUnregister}
-                actionLoading={actionLoadingId === drive.id} />
+                actionLoading={actionLoadingId === drive.id} labels={labels} />
             ))
           ) : (
-            <div className="col-span-2 text-center py-16 text-gray-400">No upcoming drives. Check back later!</div>
+            <div className="col-span-2 text-center py-16 text-gray-400">{labels.noDrives}</div>
           )}
         </div>
       )}
@@ -180,19 +202,19 @@ export default function VolunteerHub() {
                       <span>{cert.hours_contributed}h</span>
                       <span>{cert.certificate_number}</span>
                     </div>
-                    {cert.verified_by_ai && <span className="badge badge-verified mt-2 text-[10px]">AI Verified</span>}
+                    {cert.verified_by_ai && <span className="badge badge-verified mt-2 text-[10px]">{labels.aiVerified}</span>}
                   </div>
                 </div>
                 {cert.pdf_url && (
                   <a href={cert.pdf_url} download className="mt-4 block text-center py-2 rounded-lg bg-gov-50 text-gov-800 text-sm font-medium hover:bg-gov-100 transition-colors">
-                    Download PDF
+                    {labels.downloadPdf}
                   </a>
                 )}
               </div>
             ))
           ) : (
             <div className="col-span-2 text-center py-16 text-gray-400">
-              No certificates yet. Join a drive and upload a solution photo to earn one!
+              {labels.noCertificates}
             </div>
           )}
         </div>

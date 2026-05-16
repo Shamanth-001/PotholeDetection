@@ -35,13 +35,17 @@ exports.createReport = async (req, res) => {
       logger.info(`AI: ${aiResult.detected_class} (${aiResult.confidence})`);
     } catch (aiErr) {
       logger.warn(`AI unavailable: ${aiErr.message}. Proceeding without verification.`);
-      aiResult = { detected_class: issue_type, confidence: 0, bounding_boxes: [], timestamp: new Date().toISOString() };
+      aiResult = { detected_class: issue_type, confidence: 0, bounding_boxes: [], timestamp: new Date().toISOString(), error: true };
     }
 
     // Step 2: Confidence check
     const threshold = parseFloat(process.env.CONFIDENCE_THRESHOLD) || 0.7;
     let reportStatus = 'pending';
-    if (aiResult.confidence === 0) {
+    
+    // Check if AI actually performed the analysis (did not error out)
+    const aiPerformed = aiResult && !aiResult.error;
+
+    if (aiPerformed && aiResult.confidence === 0) {
       return res.status(400).json({
         success: false,
         message: 'AI Verification Failed: No pothole or garbage detected in the image.'
@@ -49,6 +53,7 @@ exports.createReport = async (req, res) => {
     } else if (aiResult.confidence >= threshold) {
       reportStatus = 'ai_verified';
     } else {
+      // If confidence is low OR AI service was unavailable, set to under_review
       reportStatus = 'under_review';
     }
 

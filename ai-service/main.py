@@ -72,7 +72,7 @@ async def analyze_image(
             question = "Analyze this image. Does it clearly show a pile of garbage, litter, or dumped waste? Reply ONLY with JSON: {\"detected\": true/false, \"confidence\": 0-100}"
 
         payload = {
-            "model": "meta/llama-3.2-11b-vision-instruct",
+            "model": "meta/llama-3.2-90b-vision-instruct",
             "messages": [{
                 "role": "user",
                 "content": [
@@ -128,7 +128,7 @@ async def analyze_image(
             confidence=round(best_confidence, 3),
             bounding_boxes=bounding_boxes,
             timestamp=datetime.now(timezone.utc).isoformat(),
-            model_version="nvidia-yolo-world",
+            model_version="meta/llama-3.2-90b-vision-instruct",
             image_dimensions={"width": 0, "height": 0}  # Not returned by API easily
         )
 
