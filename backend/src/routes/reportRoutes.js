@@ -8,6 +8,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const reportController = require('../controllers/reportController');
 const auth = require('../middleware/auth');
+const roleGuard = require('../middleware/roleGuard');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, path.join(__dirname, '../../uploads')),
@@ -27,6 +28,6 @@ router.get('/', auth, reportController.getReports);
 router.post('/', auth, upload.single('image'), reportController.createReport);
 router.get('/:id', auth, reportController.getReportById);
 router.post('/:id/upvote', auth, reportController.upvoteReport);
-router.patch('/:id/status', auth, reportController.updateStatus);
+router.patch('/:id/status', auth, roleGuard(['admin']), reportController.updateStatus);
 
 module.exports = router;

@@ -2,12 +2,18 @@
  * Report Controller — Core submission with spatial duplicate detection
  * Fixes applied: #4 (parameterized spatial query), #6 (all handlers implemented)
  */
+const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/database');
 const aiService = require('../services/aiService');
 const spatialService = require('../services/spatialService');
 const logger = require('../utils/logger');
 const { success, error } = require('../utils/responseHelper');
+
+// Remove an upload that won't be attached to a report (rejected, duplicate, failed)
+const discardUpload = (file) => {
+  if (file?.path) fs.unlink(file.path, () => {});
+};
 
 /**
  * POST /api/reports — Full submission pipeline
@@ -18,13 +24,14 @@ exports.createReport = async (req, res) => {
     const userId = req.user.id;
     const imageFile = req.file;
 
-    if (!latitude || !longitude) return error(res, 400, 'Location coordinates are required.');
     if (!imageFile) return error(res, 400, 'An image is required.');
-    if (!issue_type) return error(res, 400, 'Issue type is required.');
+    if (!latitude || !longitude) { discardUpload(imageFile); return error(res, 400, 'Location coordinates are required.'); }
+    if (!['pothole', 'garbage'].includes(issue_type)) { discardUpload(imageFile); return error(res, 400, 'Issue type must be pothole or garbage.'); }
 
     const lat = parseFloat(latitude);
     const lng = parseFloat(longitude);
     if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      discardUpload(imageFile);
       return error(res, 400, 'Invalid coordinates.');
     }
 
@@ -46,6 +53,7 @@ exports.createReport = async (req, res) => {
     const aiPerformed = aiResult && !aiResult.error;
 
     if (aiPerformed && aiResult.confidence === 0) {
+      discardUpload(imageFile);
       return res.status(400).json({
         success: false,
         message: 'AI Verification Failed: No pothole or garbage detected in the image.'
@@ -63,6 +71,7 @@ exports.createReport = async (req, res) => {
     if (nearbyReports && nearbyReports.length > 0) {
       const existing = nearbyReports[0];
       logger.info(`Duplicate: report ${existing.report_id} is ${existing.distance_meters}m away`);
+      discardUpload(imageFile);
       return res.status(200).json({
         success: true, duplicate: true,
         message: 'A similar issue has already been reported near this location.',
@@ -106,6 +115,7 @@ exports.createReport = async (req, res) => {
       points_earned: 10,
     });
   } catch (err) {
+    discardUpload(req.file);
     logger.error(`Report creation failed: ${err.message}`, { stack: err.stack });
     return error(res, 500, 'Failed to submit report.');
   }
@@ -119,6 +129,10 @@ exports.upvoteReport = async (req, res) => {
     const { id: reportId } = req.params;
     const userId = req.user.id;
     const { latitude, longitude } = req.body;
+
+    const report = await db.query('SELECT reported_by FROM reports WHERE id = $1', [reportId]);
+    if (report.rows.length === 0) return error(res, 404, 'Report not found.');
+    if (report.rows[0].reported_by === userId) return error(res, 400, 'You cannot upvote your own report.');
 
     const existing = await db.query('SELECT id FROM upvotes WHERE report_id = $1 AND user_id = $2', [reportId, userId]);
     if (existing.rows.length > 0) return error(res, 409, 'You have already upvoted this report.');
@@ -142,12 +156,13 @@ exports.upvoteReport = async (req, res) => {
       [...params, distance]
     );
 
-    // Grant 5 points for verifying/upvoting a duplicate
+    // Grant 5 points for verifying/upvoting a duplicate (the upvote trigger only updates counters)
     await db.query('UPDATE users SET points = points + 5 WHERE id = $1', [userId]);
 
-    // Flag for human verification by setting to under_review (if not already resolved/closed)
+    // Community confirmation of a still-unverified report flags it for human review;
+    // reports already verified or further along the workflow keep their status
     await db.query(
-      `UPDATE reports SET status = 'under_review' WHERE id = $1 AND status NOT IN ('resolved', 'closed')`,
+      `UPDATE reports SET status = 'under_review' WHERE id = $1 AND status = 'pending'`,
       [reportId]
     );
 
@@ -160,6 +175,7 @@ exports.upvoteReport = async (req, res) => {
       new_urgency: updated.rows[0].urgency,
     });
   } catch (err) {
+    if (err.code === '23505') return error(res, 409, 'You have already upvoted this report.');
     logger.error(`Upvote failed: ${err.message}`);
     return error(res, 500, 'Failed to record upvote.');
   }
@@ -171,7 +187,7 @@ exports.upvoteReport = async (req, res) => {
  */
 exports.getReports = async (req, res) => {
   try {
-    const { issue_type, status, urgency, lat, lng, radius, page = 1, limit = 50, sort_by = 'created_at', sort_order = 'DESC' } = req.query;
+    const { issue_type, status, urgency, lat, lng, radius, mine, page = 1, limit = 50, sort_by = 'created_at', sort_order = 'DESC' } = req.query;
 
     let query = `
       SELECT r.id, r.issue_type, r.description, r.image_url, r.status, r.urgency,
@@ -186,6 +202,7 @@ exports.getReports = async (req, res) => {
     if (issue_type) { pc++; query += ` AND r.issue_type = $${pc}`; params.push(issue_type); }
     if (status) { pc++; query += ` AND r.status = $${pc}`; params.push(status); }
     if (urgency) { pc++; query += ` AND r.urgency = $${pc}`; params.push(urgency); }
+    if (mine === 'true') { pc++; query += ` AND r.reported_by = $${pc}`; params.push(req.user.id); }
 
     // Fix #4: fully parameterized spatial filter
     if (lat && lng && radius) {

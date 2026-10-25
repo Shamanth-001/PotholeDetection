@@ -15,6 +15,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/migrations/000_full_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql
       - ./backend/seeds/001_seed_data.sql:/docker-entrypoint-initdb.d/002_seed.sql
+      - ./backend/migrations/001_points_once.sql:/docker-entrypoint-initdb.d/003_points_once.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U civiclens_user -d civiclens"]
       interval: 10s
@@ -30,6 +31,7 @@ services:
       DATABASE_URL: postgres://civiclens_user:${DB_PASSWORD:-civiclens_secure_2024}@postgres:5432/civiclens
       AI_SERVICE_URL: http://ai-service:8000
       JWT_SECRET: ${JWT_SECRET:-civiclens-jwt-secret-dev-2024}
+      CONFIDENCE_THRESHOLD: ${CONFIDENCE_THRESHOLD:-0.7}
       PORT: 3001
       CORS_ORIGIN: http://localhost:5173
     ports:
@@ -47,10 +49,10 @@ services:
     build: ./ai-service
     container_name: civiclens-ai
     environment:
-      MODEL_PATH: /app/models/civic_yolov8.pt
-      CONFIDENCE_THRESHOLD: 0.7
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY}
+      CONFIDENCE_THRESHOLD: ${CONFIDENCE_THRESHOLD:-0.7}
       PORT: 8000
-      MOCK_MODE: "false"
+      MOCK_MODE: ${MOCK_MODE:-false}
     ports:
       - "8000:8000"
     volumes:

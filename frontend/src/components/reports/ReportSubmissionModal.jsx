@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useReportStore, useUIStore } from '../../store';
 import { useGeolocation } from '../../hooks/useGeolocation';
@@ -9,7 +9,7 @@ import { ISSUE_TYPES } from '../../utils/constants';
 
 export default function ReportSubmissionModal() {
   const { closeSubmitModal, showDuplicate } = useReportStore();
-  const { position } = useGeolocation();
+  const { position, loading: locating } = useGeolocation();
   const { language } = useUIStore();
 
   const labels = {
@@ -31,6 +31,8 @@ export default function ReportSubmissionModal() {
     typeError: language === 'en' ? 'Select an issue type' : 'ಸಮಸ್ಯೆಯ ವಿಧವನ್ನು ಆರಿಸಿ',
     locationSuccess: language === 'en' ? 'Location updated' : 'ಸ್ಥಳವನ್ನು ನವೀಕರಿಸಲಾಗಿದೆ',
     locationError: language === 'en' ? 'Location not available' : 'ಸ್ಥಳ ಲಭ್ಯವಿಲ್ಲ',
+    locating: language === 'en' ? 'Getting your location...' : 'ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ಪಡೆಯಲಾಗುತ್ತಿದೆ...',
+    locationNeeded: language === 'en' ? 'Allow location access or enter the coordinates of the issue' : 'ಸ್ಥಳ ಪ್ರವೇಶವನ್ನು ಅನುಮತಿಸಿ ಅಥವಾ ಸಮಸ್ಯೆಯ ನಿರ್ದೇಶಾಂಕಗಳನ್ನು ನಮೂದಿಸಿ',
     duplicateWarning: language === 'en' ? 'This issue was already reported nearby!' : 'ಈ ಸಮಸ್ಯೆಯನ್ನು ಈಗಾಗಲೇ ಹತ್ತಿರದಲ್ಲಿ ವರದಿ ಮಾಡಲಾಗಿದೆ!',
     reportSuccess: language === 'en' ? 'Report submitted!' : 'ವರದಿ ಸಲ್ಲಿಸಲಾಗಿದೆ!',
     failError: language === 'en' ? 'Submission failed' : 'ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ',
@@ -38,10 +40,18 @@ export default function ReportSubmissionModal() {
 
   const [form, setForm] = useState({
     issue_type: '', description: '',
-    latitude: position?.lat || 12.9716,
-    longitude: position?.lng || 77.5946,
+    latitude: position?.lat ?? '',
+    longitude: position?.lng ?? '',
     address: '',
   });
+  const [locationEdited, setLocationEdited] = useState(false);
+
+  // GPS usually resolves after the modal opens; fill it in unless the user typed coordinates
+  useEffect(() => {
+    if (position && !locationEdited) {
+      setForm(f => ({ ...f, latitude: position.lat, longitude: position.lng }));
+    }
+  }, [position, locationEdited]);
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -62,6 +72,7 @@ export default function ReportSubmissionModal() {
     e.preventDefault();
     if (!image) return toast.error(labels.uploadError);
     if (!form.issue_type) return toast.error(labels.typeError);
+    if (form.latitude === '' || form.longitude === '') return toast.error(labels.locationNeeded);
 
     setLoading(true);
     try {
@@ -93,7 +104,7 @@ export default function ReportSubmissionModal() {
   };
 
   const useCurrentLocation = () => {
-    if (position) { update('latitude', position.lat); update('longitude', position.lng); toast.success(labels.locationSuccess); }
+    if (position) { setLocationEdited(false); update('latitude', position.lat); update('longitude', position.lng); toast.success(labels.locationSuccess); }
     else toast.error(labels.locationError);
   };
 
@@ -150,13 +161,16 @@ export default function ReportSubmissionModal() {
             <label className="block text-sm font-medium text-gray-700 mb-2">{labels.location}</label>
             <div className="flex gap-2">
               <div className="flex-1 flex gap-2">
-                <input type="number" step="any" value={form.latitude} onChange={e => update('latitude', e.target.value)} placeholder="Lat" className="input-field text-sm flex-1" />
-                <input type="number" step="any" value={form.longitude} onChange={e => update('longitude', e.target.value)} placeholder="Lng" className="input-field text-sm flex-1" />
+                <input type="number" step="any" value={form.latitude} onChange={e => { setLocationEdited(true); update('latitude', e.target.value); }} placeholder="Lat" className="input-field text-sm flex-1" />
+                <input type="number" step="any" value={form.longitude} onChange={e => { setLocationEdited(true); update('longitude', e.target.value); }} placeholder="Lng" className="input-field text-sm flex-1" />
               </div>
               <button type="button" onClick={useCurrentLocation} className="px-3 py-2 bg-gov-50 text-gov-700 rounded-lg hover:bg-gov-100 transition-colors" title={labels.useLocation}>
                 <MapPin className="w-5 h-5" />
               </button>
             </div>
+            {form.latitude === '' && (
+              <p className="text-xs text-amber-600 mt-1.5">{locating ? labels.locating : labels.locationNeeded}</p>
+            )}
           </div>
 
           {/* Description */}

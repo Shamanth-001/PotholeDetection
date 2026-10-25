@@ -4,11 +4,9 @@ import api from '../services/api';
 import { Plus, Filter, X, Layers } from 'lucide-react';
 import { ISSUE_TYPES, STATUS_OPTIONS, getIssueColor } from '../utils/constants';
 import CivicMap from '../components/map/CivicMap';
-import ReportSubmissionModal from '../components/reports/ReportSubmissionModal';
-import DuplicateWarningModal from '../components/reports/DuplicateWarningModal';
 
 export default function MapView() {
-  const { reports, setReports, showSubmitModal, openSubmitModal, showDuplicateModal } = useReportStore();
+  const { reports, setReports, openSubmitModal } = useReportStore();
   const { filters, setFilter, clearFilters, toggleHeatmap, showHeatmap } = useMapStore();
   const { language } = useUIStore();
   const [showFilters, setShowFilters] = useState(false);
@@ -107,8 +105,6 @@ export default function MapView() {
         <Plus className="w-6 h-6" />
       </button>
 
-      {showSubmitModal && <ReportSubmissionModal />}
-      {showDuplicateModal && <DuplicateWarningModal />}
     </div>
   );
 }

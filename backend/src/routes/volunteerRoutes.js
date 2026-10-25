@@ -13,6 +13,10 @@ const upload = multer({
     filename: (req, file, cb) => cb(null, `solution_${uuidv4()}${path.extname(file.originalname)}`),
   }),
   limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    cb(allowed.includes(file.mimetype) ? null : new Error('Invalid file type. Only JPEG, PNG, WebP allowed.'), allowed.includes(file.mimetype));
+  },
 });
 
 router.get('/drives', auth, volunteerController.listDrives);

@@ -74,7 +74,8 @@ exports.refreshToken = async (req, res) => {
   try {
     const { token } = req.body;
     if (!token) return error(res, 400, 'Token is required.');
-    const decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true });
+    // Only a still-valid token can be exchanged; expired sessions must log in again
+    const decoded = jwt.verify(token, JWT_SECRET);
     const result = await db.query('SELECT id, email, role FROM users WHERE id = $1 AND is_active = TRUE', [decoded.id]);
     if (result.rows.length === 0) return error(res, 401, 'User not found.');
     const user = result.rows[0];

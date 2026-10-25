@@ -17,10 +17,9 @@ export function useGeolocation() {
         setLoading(false);
       },
       (err) => {
+        // Leave position null: callers must not treat a fallback as the user's real location
         setError(err.message);
         setLoading(false);
-        // Default to Bangalore, India
-        setPosition({ lat: 12.9716, lng: 77.5946 });
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );

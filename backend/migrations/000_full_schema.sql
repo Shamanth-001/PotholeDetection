@@ -218,7 +218,8 @@ BEGIN
             ELSE urgency
         END
     WHERE id = NEW.report_id;
-    UPDATE users SET points = points + 1, upvotes_given = upvotes_given + 1 WHERE id = NEW.user_id;
+    -- Points for upvoting are awarded by the API (reportController.upvoteReport)
+    UPDATE users SET upvotes_given = upvotes_given + 1 WHERE id = NEW.user_id;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -286,7 +287,8 @@ CREATE TRIGGER trigger_certificate_number
 CREATE OR REPLACE FUNCTION increment_user_certificates()
 RETURNS TRIGGER AS $$
 BEGIN
-    UPDATE users SET certificates_earned = certificates_earned + 1, points = points + 50 WHERE id = NEW.user_id;
+    -- Points for certificates are awarded by the API (volunteerController.uploadSolution)
+    UPDATE users SET certificates_earned = certificates_earned + 1 WHERE id = NEW.user_id;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

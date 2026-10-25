@@ -1,6 +1,8 @@
 /**
  * Volunteer Controller — Drive management and certificate generation
  */
+const fs = require('fs');
+const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/database');
 const aiService = require('../services/aiService');
@@ -99,6 +101,8 @@ exports.unregisterFromDrive = async (req, res) => {
     const { id: driveId } = req.params;
     const deleted = await db.query('DELETE FROM drive_volunteers WHERE drive_id = $1 AND user_id = $2 RETURNING id', [driveId, req.user.id]);
     if (deleted.rows.length === 0) return error(res, 404, 'Not registered.');
+    // Take back the registration points so register/unregister can't be looped for points
+    await db.query('UPDATE users SET points = GREATEST(points - 5, 0) WHERE id = $1', [req.user.id]);
     await db.query(`UPDATE volunteer_drives SET current_volunteers = GREATEST(current_volunteers - 1, 0),
       status = CASE WHEN status = 'full' THEN 'open_for_registration'::drive_status ELSE status END WHERE id = $1`, [driveId]);
     return success(res, 200, 'Registration cancelled.');
@@ -112,17 +116,19 @@ exports.uploadSolution = async (req, res) => {
     const imageFile = req.file;
     if (!imageFile) return error(res, 400, 'Solution image required.');
 
-    const reg = await db.query('SELECT id FROM drive_volunteers WHERE drive_id = $1 AND user_id = $2', [driveId, userId]);
-    if (reg.rows.length === 0) return error(res, 403, 'Not registered for this drive.');
+    const reg = await db.query('SELECT id, attended FROM drive_volunteers WHERE drive_id = $1 AND user_id = $2', [driveId, userId]);
+    if (reg.rows.length === 0) { fs.unlink(imageFile.path, () => {}); return error(res, 403, 'Not registered for this drive.'); }
+    if (reg.rows[0].attended) { fs.unlink(imageFile.path, () => {}); return error(res, 409, 'You have already submitted a solution for this drive.'); }
 
     const drive = await db.query('SELECT * FROM volunteer_drives WHERE id = $1', [driveId]);
     if (drive.rows.length === 0) return error(res, 404, 'Drive not found.');
     const driveData = drive.rows[0];
     const solutionUrl = `/uploads/${imageFile.filename}`;
 
-    let aiVerified = true, aiConfidence = 0;
+    // "Verified" means the AI looked at the after-photo and no longer sees the issue
+    let aiVerified = false, aiConfidence = 0;
     try {
-      const aiResult = await aiService.analyzeImage(imageFile.path);
+      const aiResult = await aiService.analyzeImage(imageFile.path, driveData.target_issue_type || 'garbage');
       aiConfidence = aiResult.confidence;
       aiVerified = aiResult.confidence < 0.5;
     } catch (e) { logger.warn(`AI unavailable for solution: ${e.message}`); }
@@ -146,6 +152,7 @@ exports.uploadSolution = async (req, res) => {
       issueAddressed: driveData.title, location: driveData.address_text, date: new Date().toLocaleDateString(), hours: driveData.estimated_duration_hours || 2,
     });
     await db.query('UPDATE certificates SET pdf_url = $1 WHERE id = $2', [pdfUrl, cert.rows[0].id]);
+    // The certificate trigger only bumps certificates_earned; points are awarded here
     await db.query('UPDATE users SET points = points + 100, volunteer_hours = volunteer_hours + $1 WHERE id = $2', [driveData.estimated_duration_hours || 2, userId]);
 
     return success(res, 201, 'Solution verified! Certificate generated.', { ai_verified: aiVerified, certificate: { ...cert.rows[0], pdf_url: pdfUrl }, points_earned: 100 });
@@ -165,6 +172,8 @@ exports.downloadCertificate = async (req, res) => {
     const result = await db.query('SELECT pdf_url, certificate_number FROM certificates WHERE id = $1 AND user_id = $2', [id, req.user.id]);
     if (result.rows.length === 0) return error(res, 404, 'Certificate not found.');
     if (!result.rows[0].pdf_url) return error(res, 404, 'PDF not yet generated.');
-    res.download(result.rows[0].pdf_url, `CivicLens_${result.rows[0].certificate_number}.pdf`);
+    // pdf_url is a public URL (/uploads/...); map it back to the file on disk
+    const filePath = path.join(__dirname, '../..', result.rows[0].pdf_url);
+    res.download(filePath, `CivicLens_${result.rows[0].certificate_number}.pdf`);
   } catch (err) { return error(res, 500, 'Failed to download certificate.'); }
 };

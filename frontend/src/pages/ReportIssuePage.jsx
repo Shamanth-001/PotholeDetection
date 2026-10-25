@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { useAuthStore, useReportStore, useUIStore } from '../store';
 import api from '../services/api';
 import { getIssueColor, getStatusBadge, ISSUE_TYPES } from '../utils/constants';
-import ReportSubmissionModal from '../components/reports/ReportSubmissionModal';
-import DuplicateWarningModal from '../components/reports/DuplicateWarningModal';
 import {
   MapPin, Clock, CheckCircle, Loader2, Send, CircleDot,
   Filter, ImagePlus, AlertCircle, Trash2
@@ -24,6 +22,7 @@ function ReportCard({ report, labels, language }) {
   const isVerifying = report.status === 'pending' || report.status === 'under_review';
   const issueColor = getIssueColor(report.issue_type);
   const badge = getStatusBadge(report.status);
+  const hasAiScore = Number(report.ai_confidence) > 0;
 
   const getAiSubtext = (report) => {
     if (report.issue_type === 'pothole') return language === 'en' ? 'Pothole detected & classified' : 'ರಸ್ತೆ ಗುಂಡಿ ಪತ್ತೆಹಚ್ಚಲಾಗಿದೆ ಮತ್ತು ವರ್ಗೀಕರಿಸಲಾಗಿದೆ';
@@ -97,14 +96,16 @@ function ReportCard({ report, labels, language }) {
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-semibold text-gov-800">{labels.aiProgress}</span>
               <span className="text-xs font-bold text-gov-900">
-                {report.ai_confidence ? `${Math.round(report.ai_confidence * 100)}%` : '85%'}
+                {hasAiScore ? `${Math.round(report.ai_confidence * 100)}%` : labels.awaitingReview}
               </span>
             </div>
-            <div className="w-full h-2 bg-gov-100 rounded-full overflow-hidden">
-              <div className="h-full bg-gov-600 rounded-full transition-all duration-1000"
-                style={{ width: report.ai_confidence ? `${report.ai_confidence * 100}%` : '85%' }} />
-            </div>
-            <p className="text-[10px] text-gray-500 mt-1.5 italic">{labels.aiScanning}</p>
+            {hasAiScore && (
+              <div className="w-full h-2 bg-gov-100 rounded-full overflow-hidden">
+                <div className="h-full bg-gov-600 rounded-full transition-all duration-1000"
+                  style={{ width: `${report.ai_confidence * 100}%` }} />
+              </div>
+            )}
+            <p className="text-[10px] text-gray-500 mt-1.5 italic">{hasAiScore ? labels.aiScanning : labels.manualReview}</p>
           </div>
         )}
         <div className="space-y-2.5">
@@ -142,7 +143,7 @@ function ReportCard({ report, labels, language }) {
 export default function ReportIssuePage() {
   const { user } = useAuthStore();
   const { language } = useUIStore();
-  const { showSubmitModal, openSubmitModal, showDuplicateModal } = useReportStore();
+  const { showSubmitModal, openSubmitModal } = useReportStore();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('all');
@@ -157,6 +158,8 @@ export default function ReportIssuePage() {
     aiProgress: language === 'en' ? 'AI Verification Progress' : 'AI ಪರಿಶೀಲನೆಯ ಪ್ರಗತಿ',
     aiScanning: language === 'en' ? 'Scanning image for infrastructure category and priority level...' : 'ವರ್ಗ ಮತ್ತು ಆದ್ಯತೆಯ ಮಟ್ಟಕ್ಕಾಗಿ ಚಿತ್ರವನ್ನು ಸ್ಕ್ಯಾನ್ ಮಾಡಲಾಗುತ್ತಿದೆ...',
     successUpload: language === 'en' ? 'Successfully Uploaded' : 'ಯಶಸ್ವಿಯಾಗಿ ಅಪ್‌ಲೋಡ್ ಮಾಡಲಾಗಿದೆ',
+    awaitingReview: language === 'en' ? 'Awaiting review' : 'ಪರಿಶೀಲನೆಗೆ ಕಾಯಲಾಗುತ್ತಿದೆ',
+    manualReview: language === 'en' ? 'AI could not score this image; an official will review it.' : 'AI ಈ ಚಿತ್ರವನ್ನು ಅಂದಾಜಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ; ಅಧಿಕಾರಿಯೊಬ್ಬರು ಪರಿಶೀಲಿಸುತ್ತಾರೆ.',
     foundAnother: language === 'en' ? 'Found another issue?' : 'ಇನ್ನೊಂದು ಸಮಸ್ಯೆ ಕಂಡುಬಂದಿದೆಯೇ?',
     uploadDesc: language === 'en' ? 'Upload a photo to start a new report. AI will automatically tag the category.' : 'ಹೊಸ ವರದಿ ಪ್ರಾರಂಭಿಸಲು ಫೋಟೋ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ. AI ವರ್ಗವನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಟ್ಯಾಗ್ ಮಾಡುತ್ತದೆ.',
     reportNow: language === 'en' ? 'Report Now' : 'ಈಗಲೇ ವರದಿ ಮಾಡಿ',
@@ -166,7 +169,7 @@ export default function ReportIssuePage() {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: '50', sort_by: 'created_at', sort_order: 'DESC' });
+      const params = new URLSearchParams({ mine: 'true', limit: '50', sort_by: 'created_at', sort_order: 'DESC' });
       if (filterType !== 'all') params.set('issue_type', filterType);
       const res = await api.get(`/reports?${params}`);
       if (res.data?.data?.reports) setReports(res.data.data.reports);
@@ -235,8 +238,6 @@ export default function ReportIssuePage() {
           </div>
         )}
       </div>
-      {showSubmitModal && <ReportSubmissionModal />}
-      {showDuplicateModal && <DuplicateWarningModal />}
     </div>
   );
 }

@@ -8,7 +8,7 @@ Built for the BBMP (Bruhat Bengaluru Mahanagara Palike), this platform uses stat
 
 ## 🚀 Key Features
 
-- **AI-Powered Verification**: Uses NVIDIA's LLaMA 3.2 Vision and YOLO-World models to automatically detect and classify potholes/garbage from citizen-uploaded photos.
+- **AI-Powered Verification**: Uses NVIDIA-hosted LLaMA 3.2 Vision to check whether a citizen-uploaded photo really shows a pothole or garbage, with a confidence score.
 - **Smart Duplicate Detection**: Automatically identifies reports within a 10m radius to prevent redundant data and encourage community upvoting.
 - **Gamified Rewards**: Citizens earn "Impact Points" for reporting valid issues and upvoting community-verified reports.
 - **Spatial Heatmaps**: Administrative dashboard with PostGIS-powered heatmaps to visualize high-urgency zones.
@@ -18,7 +18,7 @@ Built for the BBMP (Bruhat Bengaluru Mahanagara Palike), this platform uses stat
 
 - **Frontend**: React.js, Tailwind CSS, Leaflet, Lucide Icons, React Hot Toast.
 - **Backend**: Node.js, Express.js, PostgreSQL with PostGIS (Spatial Database).
-- **AI Microservice**: Python (FastAPI), NVIDIA NIM (LLaMA 3.2 Vision / YOLO-World).
+- **AI Microservice**: Python (FastAPI), NVIDIA NIM (LLaMA 3.2 Vision).
 - **Deployment**: Docker, Docker Compose.
 
 ## 📦 Project Structure
@@ -49,7 +49,18 @@ NVIDIA_API_KEY=your_nvapi_key_here
 
 # AI Configuration
 CONFIDENCE_THRESHOLD=0.7
+# true = skip NVIDIA and accept every image (local demos without an API key only)
 MOCK_MODE=false
+
+# Auth (use a long random value outside local development)
+JWT_SECRET=change_me
+```
+
+Without `NVIDIA_API_KEY` (and with `MOCK_MODE=false`), the AI service reports itself as `misconfigured` and new reports go to `under_review` for an admin to check by hand.
+
+Upgrading an existing database volume? Apply the points fix once:
+```bash
+docker compose exec -T postgres psql -U civiclens_user -d civiclens < backend/migrations/001_points_once.sql
 ```
 
 ### 3. Launch

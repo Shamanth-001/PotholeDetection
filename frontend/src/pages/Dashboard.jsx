@@ -8,8 +8,6 @@ import {
   Users, Award, MapPin, Sparkles, ChevronRight, Calendar, Bell
 } from 'lucide-react';
 import { getIssueColor, getStatusBadge } from '../utils/constants';
-import ReportSubmissionModal from '../components/reports/ReportSubmissionModal';
-import DuplicateWarningModal from '../components/reports/DuplicateWarningModal';
 
 function StatCard({ icon: Icon, label, value, className = '' }) {
   return (
@@ -26,7 +24,7 @@ function StatCard({ icon: Icon, label, value, className = '' }) {
 export default function Dashboard({ openReport = false }) {
   const { user } = useAuthStore();
   const { language } = useUIStore();
-  const { reports, setReports, showSubmitModal, openSubmitModal, showDuplicateModal } = useReportStore();
+  const { reports, setReports, openSubmitModal } = useReportStore();
   
   const labels = {
     greeting: language === 'en' ? 'Namaskara' : 'ನಮಸ್ಕಾರ',
@@ -242,8 +240,6 @@ export default function Dashboard({ openReport = false }) {
         </div>
       </div>
 
-      {showSubmitModal && <ReportSubmissionModal />}
-      {showDuplicateModal && <DuplicateWarningModal />}
     </div>
   );
 }
