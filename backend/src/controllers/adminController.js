@@ -77,23 +77,6 @@ exports.getAllReports = async (req, res) => {
   } catch (err) { return error(res, 500, 'Failed.'); }
 };
 
-exports.updateReport = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, urgency, assigned_to, resolution_notes } = req.body;
-    const fields = []; const params = []; let pc = 0;
-    if (status) { pc++; fields.push(`status = $${pc}`); params.push(status); if (status === 'resolved') { fields.push('resolved_at = NOW()'); pc++; fields.push(`resolved_by = $${pc}`); params.push(req.user.id); } }
-    if (urgency) { pc++; fields.push(`urgency = $${pc}`); params.push(urgency); }
-    if (assigned_to) { pc++; fields.push(`assigned_to = $${pc}`); params.push(assigned_to); }
-    if (resolution_notes) { pc++; fields.push(`resolution_notes = $${pc}`); params.push(resolution_notes); }
-    if (fields.length === 0) return error(res, 400, 'No fields to update.');
-    pc++; params.push(id);
-    const result = await db.query(`UPDATE reports SET ${fields.join(', ')} WHERE id = $${pc} RETURNING *`, params);
-    if (result.rows.length === 0) return error(res, 404, 'Not found.');
-    return success(res, 200, 'Updated.', { report: result.rows[0] });
-  } catch (err) { return error(res, 500, 'Failed.'); }
-};
-
 exports.getUsers = async (req, res) => {
   try {
     const result = await db.query(`SELECT id, email, full_name, display_name, role, points, reports_submitted, certificates_earned, volunteer_hours, is_active, created_at, last_login_at FROM users ORDER BY created_at DESC`);

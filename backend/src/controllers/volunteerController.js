@@ -31,7 +31,8 @@ exports.listDrives = async (req, res) => {
     const params = [userId]; let pc = 1;
     if (status) { pc++; query += ` AND vd.status = $${pc}`; params.push(status); }
     if (issue_type) { pc++; query += ` AND vd.target_issue_type = $${pc}`; params.push(issue_type); }
-    if (upcoming_only === 'true') query += ` AND vd.scheduled_date >= CURRENT_DATE`;
+    // Upcoming = still in the future and not finished or called off
+    if (upcoming_only === 'true') query += ` AND vd.scheduled_date >= CURRENT_DATE AND vd.status NOT IN ('completed', 'cancelled')`;
     query += ` ORDER BY vd.scheduled_date ASC`;
     const result = await db.query(query, params);
     return success(res, 200, 'Drives retrieved.', { drives: result.rows });
@@ -53,25 +54,6 @@ exports.getDriveDetails = async (req, res) => {
     const registered = await db.query('SELECT id FROM drive_volunteers WHERE drive_id = $1 AND user_id = $2', [id, req.user.id]);
     return success(res, 200, 'Drive details.', { drive: drive.rows[0], volunteers: volunteers.rows, user_registered: registered.rows.length > 0 });
   } catch (err) { return error(res, 500, 'Failed to retrieve drive details.'); }
-};
-
-exports.createDrive = async (req, res) => {
-  try {
-    const { title, description, latitude, longitude, address_text, meeting_point_description, scheduled_date, start_time, end_time, max_volunteers, min_volunteers, target_issue_type, linked_report_ids } = req.body;
-    if (!title || !latitude || !longitude || !scheduled_date || !start_time) return error(res, 400, 'Title, location, date, and start time required.');
-    const driveId = uuidv4();
-    const result = await db.query(`
-      INSERT INTO volunteer_drives (id, title, description, location, address_text, meeting_point_description,
-        scheduled_date, start_time, end_time, max_volunteers, min_volunteers, status, target_issue_type, linked_report_ids, organized_by)
-      VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326), $6, $7, $8, $9, $10, $11, $12, 'open_for_registration', $13, $14, $15)
-      RETURNING id, title, scheduled_date, status, max_volunteers, current_volunteers
-    `, [driveId, title, description, parseFloat(longitude), parseFloat(latitude), address_text, meeting_point_description, scheduled_date, start_time, end_time || null, max_volunteers || 20, min_volunteers || 3, target_issue_type || null, linked_report_ids || '{}', req.user.id]);
-
-    if (linked_report_ids && linked_report_ids.length > 0) {
-      await db.query(`UPDATE reports SET volunteer_drive_id = $1, status = 'volunteer_assigned' WHERE id = ANY($2) AND status NOT IN ('resolved','closed')`, [driveId, linked_report_ids]);
-    }
-    return success(res, 201, 'Drive created!', { drive: result.rows[0] });
-  } catch (err) { logger.error(`Create drive: ${err.message}`); return error(res, 500, 'Failed to create drive.'); }
 };
 
 exports.registerForDrive = async (req, res) => {

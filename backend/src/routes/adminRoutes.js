@@ -11,7 +11,6 @@ router.get('/heatmap-data', adminController.getHeatmapData);
 router.get('/analytics', adminController.getAnalytics);
 router.get('/ward-stats', adminController.getWardStatistics);
 router.get('/reports', adminController.getAllReports);
-router.patch('/reports/:id', adminController.updateReport);
 router.get('/users', adminController.getUsers);
 router.get('/export', adminController.exportReports);
 router.post('/refresh-analytics', adminController.refreshAnalytics);

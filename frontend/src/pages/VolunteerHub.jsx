@@ -7,6 +7,8 @@ import { Calendar, MapPin, Users, Clock, Award, Loader2, Bell, CheckCircle } fro
 function DriveCard({ drive, onRegister, onUnregister, userRegistered, actionLoading, labels }) {
   const progress = Math.min((drive.current_volunteers / drive.max_volunteers) * 100, 100);
   const isFull = drive.current_volunteers >= drive.max_volunteers;
+  // The backend only accepts registrations while a drive is open
+  const isClosed = !isFull && drive.status !== 'open_for_registration';
 
   return (
     <div className="gov-card gov-card-hover p-6">
@@ -59,11 +61,11 @@ function DriveCard({ drive, onRegister, onUnregister, userRegistered, actionLoad
           {actionLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> {labels.processing}</> : <><CheckCircle className="w-4 h-4" /> {labels.registeredCancel}</>}
         </button>
       ) : (
-        <button onClick={() => onRegister(drive.id)} disabled={isFull || actionLoading}
+        <button onClick={() => onRegister(drive.id)} disabled={isFull || isClosed || actionLoading}
           className={`w-full py-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${
-            isFull ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'btn-primary'
+            isFull || isClosed ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'btn-primary'
           }`}>
-          {actionLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> {labels.registering}</> : isFull ? labels.driveFull : labels.registerNow}
+          {actionLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> {labels.registering}</> : isFull ? labels.driveFull : isClosed ? labels.registrationClosed : labels.registerNow}
         </button>
       )}
     </div>
@@ -95,6 +97,7 @@ export default function VolunteerHub() {
     registering: language === 'en' ? 'Registering...' : 'ನೋಂದಾಯಿಸಲಾಗುತ್ತಿದೆ...',
     driveFull: language === 'en' ? 'Drive Full' : 'ಡ್ರೈವ್ ಭರ್ತಿಯಾಗಿದೆ',
     registerNow: language === 'en' ? 'Register Now →' : 'ಈಗಲೇ ನೋಂದಾಯಿಸಿ →',
+    registrationClosed: language === 'en' ? 'Registration Closed' : 'ನೋಂದಣಿ ಮುಚ್ಚಲಾಗಿದೆ',
     noDrives: language === 'en' ? 'No upcoming drives. Check back later!' : 'ಯಾವುದೇ ಮುಂಬರುವ ಡ್ರೈವ್‌ಗಳಿಲ್ಲ. ನಂತರ ಪರಿಶೀಲಿಸಿ!',
     noCertificates: language === 'en' ? 'No certificates yet. Join a drive and upload a solution photo to earn one!' : 'ಇನ್ನೂ ಯಾವುದೇ ಪ್ರಮಾಣಪತ್ರಗಳಿಲ್ಲ. ಒಂದು ಡ್ರೈವ್‌ಗೆ ಸೇರಿ ಮತ್ತು ಪ್ರಮಾಣಪತ್ರ ಗಳಿಸಲು ಫೋಟೋ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ!',
     downloadPdf: language === 'en' ? 'Download PDF' : 'PDF ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ',
@@ -129,8 +132,7 @@ export default function VolunteerHub() {
       await api.post(`/volunteer/drives/${driveId}/register`);
       toast.success(language === 'en' ? 'Registered! +5 points' : 'ನೋಂದಾಯಿಸಲಾಗಿದೆ! +5 ಪಾಯಿಂಟ್ಸ್');
       setRegisteredDrives(prev => new Set(prev).add(driveId));
-      setDrives(prev => prev.map(d => d.id === driveId ? { ...d, current_volunteers: d.current_volunteers + 1 } : d));
-    } catch (err) { toast.error(err.response?.data?.message || (language === 'en' ? 'Failed' : 'ವಿಫಲವಾಗಿದೆ')); }
+      setDrives(prev => prev.map(d => d.id === driveId ? { ...d, current_volunteers: d.current_volunteers + 1 } : d));    } catch (err) { toast.error(err.response?.data?.message || (language === 'en' ? 'Failed' : 'ವಿಫಲವಾಗಿದೆ')); }
     finally { setActionLoadingId(null); }
   };
 

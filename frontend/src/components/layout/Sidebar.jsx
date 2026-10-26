@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuthStore, useReportStore, useUIStore } from '../../store';
 import {
-  LayoutDashboard, Map, PlusCircle, Trophy, User, Users,
+  LayoutDashboard, Map, FileText, Trophy, User, Users,
   HelpCircle, Settings, Building2, Plus
 } from 'lucide-react';
 import { HelpModal, SettingsModal } from './SidebarModals';
@@ -21,7 +21,7 @@ export default function Sidebar() {
   const labels = {
     dashboard: language === 'en' ? 'Dashboard' : 'ಡ್ಯಾಶ್‌ಬೋರ್ಡ್',
     map: language === 'en' ? 'Map View' : 'ನಕ್ಷೆ ವೀಕ್ಷಣೆ',
-    report: language === 'en' ? 'Report Issue' : 'ದೂರು ನೀಡಿ',
+    report: language === 'en' ? 'My Reports' : 'ನನ್ನ ವರದಿಗಳು',
     leaderboard: language === 'en' ? 'Leaderboard' : 'ಲೀಡರ್‌ಬೋರ್ಡ್',
     profile: language === 'en' ? 'My Profile' : 'ನನ್ನ ಪ್ರೊಫೈಲ್',
     volunteer: language === 'en' ? 'Volunteer Hub' : 'ಸ್ವಯಂಸೇವಕ ಕೇಂದ್ರ',
@@ -36,7 +36,7 @@ export default function Sidebar() {
   const mainLinks = [
     { to: '/dashboard', label: labels.dashboard, icon: LayoutDashboard },
     { to: '/map', label: labels.map, icon: Map },
-    { to: '/report', label: labels.report, icon: PlusCircle },
+    { to: '/report', label: labels.report, icon: FileText },
     { to: '/leaderboard', label: labels.leaderboard, icon: Trophy },
     { to: '/volunteer', label: labels.volunteer, icon: Users },
     { to: '/profile', label: labels.profile, icon: User },
