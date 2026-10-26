@@ -10,3 +10,9 @@ __pycache__/
 models/
 *.pt
 docker-compose.local.yml
+
+# Local one-off scripts (not part of the app)
+test-ai.js
+test.jpg
+generate_ppt.py
+backend/fix_passwords.js
