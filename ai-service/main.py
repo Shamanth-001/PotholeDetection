@@ -13,6 +13,7 @@ import requests
 import base64
 import json
 import re
+import time
 
 # Config
 PORT = int(os.getenv("PORT", "8000"))
@@ -203,6 +204,16 @@ async def analyze_image(
                     json=payload,
                     timeout=REQUEST_TIMEOUT
                 )
+                # A busy hosted model answers 503 within a second; one short wait usually gets a free slot
+                if response.status_code == 503:
+                    logger.warning(f"Model {model_name} busy (503), retrying once in 2s...")
+                    time.sleep(2)
+                    response = requests.post(
+                        "https://integrate.api.nvidia.com/v1/chat/completions",
+                        headers=headers,
+                        json=payload,
+                        timeout=REQUEST_TIMEOUT
+                    )
 
                 if response.status_code != 200:
                     logger.warning(f"Model {model_name} failed with status {response.status_code}: {response.text[:300]}")

@@ -84,7 +84,7 @@ export default function ReportSubmissionModal() {
       formData.append('description', form.description);
       formData.append('address', form.address);
 
-      const res = await api.post('/reports', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const res = await api.post('/reports', formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000 });
 
       if (res.data.duplicate) {
         closeSubmitModal();
