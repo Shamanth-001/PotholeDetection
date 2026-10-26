@@ -36,32 +36,31 @@ exports.createReport = async (req, res) => {
     }
 
     // Step 1: AI Analysis
+    // Every report must pass the photo check; an unverified photo could be anything
     let aiResult;
     try {
       aiResult = await aiService.analyzeImage(imageFile.path || imageFile.buffer, issue_type);
       logger.info(`AI: ${aiResult.detected_class} (${aiResult.confidence})`);
     } catch (aiErr) {
-      logger.warn(`AI unavailable: ${aiErr.message}. Proceeding without verification.`);
-      aiResult = { detected_class: issue_type, confidence: 0, bounding_boxes: [], timestamp: new Date().toISOString(), error: true };
+      logger.error(`AI unavailable, report rejected: ${aiErr.message}`);
+      discardUpload(imageFile);
+      return error(res, 503, 'Photo verification is temporarily unavailable. Please try again in a few minutes.');
     }
 
     // Step 2: Confidence check
     const threshold = parseFloat(process.env.CONFIDENCE_THRESHOLD) || 0.7;
-    let reportStatus = 'pending';
-    
-    // Check if AI actually performed the analysis (did not error out)
-    const aiPerformed = aiResult && !aiResult.error;
+    let reportStatus;
 
-    if (aiPerformed && aiResult.confidence === 0) {
+    if (!aiResult.confidence || aiResult.detected_class === 'None') {
       discardUpload(imageFile);
       return res.status(400).json({
         success: false,
-        message: 'AI Verification Failed: No pothole or garbage detected in the image.'
+        message: `AI Verification Failed: No ${issue_type} detected in the image.`
       });
     } else if (aiResult.confidence >= threshold) {
       reportStatus = 'ai_verified';
     } else {
-      // If confidence is low OR AI service was unavailable, set to under_review
+      // Detected, but not confidently enough to auto-verify
       reportStatus = 'under_review';
     }
 
