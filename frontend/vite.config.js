@@ -18,9 +18,10 @@ export default defineConfig({
       host: 'localhost',
       port: 5173,
     },
+    // In Docker the backend is another container, so localhost would point at this one
     proxy: {
-      '/api': { target: 'http://localhost:3001', changeOrigin: true },
-      '/uploads': { target: 'http://localhost:3001', changeOrigin: true },
+      '/api': { target: process.env.BACKEND_PROXY_TARGET || 'http://localhost:3001', changeOrigin: true },
+      '/uploads': { target: process.env.BACKEND_PROXY_TARGET || 'http://localhost:3001', changeOrigin: true },
     },
   },
 })
