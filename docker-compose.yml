@@ -53,6 +53,7 @@ services:
       CONFIDENCE_THRESHOLD: ${CONFIDENCE_THRESHOLD:-0.7}
       PORT: 8000
       MOCK_MODE: ${MOCK_MODE:-false}
+      VISION_MODEL: ${VISION_MODEL:-nemotron}
     ports:
       - "8000:8000"
     volumes:

@@ -7,7 +7,7 @@ const fs = require('fs');
 const logger = require('../utils/logger');
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-const TIMEOUT_MS = 30000;
+const TIMEOUT_MS = 45000; // AI service may try two models at up to 20s each
 
 /**
  * Send image to AI service for analysis
