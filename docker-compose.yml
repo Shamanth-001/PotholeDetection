@@ -16,6 +16,7 @@ services:
       - ./backend/migrations/000_full_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql
       - ./backend/seeds/001_seed_data.sql:/docker-entrypoint-initdb.d/002_seed.sql
       - ./backend/migrations/001_points_once.sql:/docker-entrypoint-initdb.d/003_points_once.sql
+      - ./backend/migrations/002_notifications.sql:/docker-entrypoint-initdb.d/004_notifications.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U civiclens_user -d civiclens"]
       interval: 10s

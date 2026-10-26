@@ -9,5 +9,6 @@ router.use('/auth', require('./authRoutes'));
 router.use('/reports', require('./reportRoutes'));
 router.use('/volunteer', require('./volunteerRoutes'));
 router.use('/admin', require('./adminRoutes'));
+router.use('/notifications', require('./notificationRoutes'));
 
 module.exports = router;

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import api from '../services/api';
 
 export const useAuthStore = create((set) => ({
   user: JSON.parse(localStorage.getItem('civiclens_user') || 'null'),
@@ -62,16 +63,42 @@ export const useUIStore = create((set) => ({
   },
 }));
 
-export const useNotificationStore = create((set) => ({
-  notifications: [
-    { id: 1, title: 'Report Verified', desc: 'Your report in Koramangala has been verified.', time: '2m ago', type: 'success', read: false },
-    { id: 2, title: 'Welcome to Namma Clean!', desc: 'Start by reporting an issue near you.', time: '1h ago', type: 'info', read: true },
-  ],
+export const useNotificationStore = create((set, get) => ({
+  notifications: [],
+  unreadCount: 0,
+  loading: false,
+
+  fetchNotifications: async () => {
+    try {
+      set({ loading: true });
+      const res = await api.get('/notifications');
+      if (res.data?.success && res.data?.data?.notifications) {
+        const notifications = res.data.data.notifications;
+        const unreadCount = notifications.filter(n => !n.read).length;
+        set({ notifications, unreadCount });
+      }
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+    } finally {
+      set({ loading: false });
+    }
+  },
+
   addNotification: (n) => set((state) => ({ 
-    notifications: [{ id: Date.now(), time: 'Just now', read: false, ...n }, ...state.notifications] 
+    notifications: [{ id: Date.now(), created_at: new Date().toISOString(), read: false, ...n }, ...state.notifications],
+    unreadCount: state.unreadCount + 1
   })),
-  markAllRead: () => set((state) => ({
-    notifications: state.notifications.map(n => ({ ...n, read: true }))
-  })),
+
+  markAllRead: async () => {
+    try {
+      set((state) => ({
+        notifications: state.notifications.map(n => ({ ...n, read: true })),
+        unreadCount: 0
+      }));
+      await api.patch('/notifications/read');
+    } catch (err) {
+      console.error('Failed to mark notifications read:', err);
+    }
+  },
 }));
 

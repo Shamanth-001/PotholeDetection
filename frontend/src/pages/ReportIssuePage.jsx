@@ -130,6 +130,31 @@ function ReportCard({ report, labels, language }) {
             );
           })}
         </div>
+
+        {report.status === 'resolved' && (
+          <div className="mt-4 p-4 rounded-xl bg-green-50/50 border border-green-100 space-y-3">
+            <div className="flex items-center gap-2 text-green-800 font-bold text-xs">
+              <CheckCircle className="w-4 h-4 text-green-600" />
+              {language === 'en' ? 'Resolution Details' : 'ಪರಿಹಾರದ ವಿವರಗಳು'}
+            </div>
+            {report.resolution_notes && (
+              <p className="text-xs text-gray-700 leading-relaxed italic">
+                "{report.resolution_notes}"
+              </p>
+            )}
+            {report.resolution_image_url && (
+              <div className="mt-2 rounded-lg overflow-hidden border border-green-200 shadow-sm max-h-32">
+                <img
+                  src={report.resolution_image_url}
+                  alt="Resolution"
+                  className="w-full h-full object-cover"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
         {isVerifying && (
           <div className="mt-4 flex items-center gap-2 text-xs text-green-600 font-medium">
             <CheckCircle className="w-4 h-4" /> {labels.successUpload}

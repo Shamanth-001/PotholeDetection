@@ -193,6 +193,7 @@ exports.getReports = async (req, res) => {
       SELECT r.id, r.issue_type, r.description, r.image_url, r.status, r.urgency,
         r.priority_score, r.upvote_count, r.ai_detected_class, r.ai_confidence,
         r.created_at, r.address_text, ST_Y(r.location) as latitude, ST_X(r.location) as longitude,
+        r.resolved_at, r.resolution_notes, r.resolution_image_url,
         u.display_name as reported_by_name
       FROM reports r LEFT JOIN users u ON r.reported_by = u.id WHERE 1=1
     `;
@@ -310,5 +311,76 @@ exports.updateStatus = async (req, res) => {
   } catch (err) {
     logger.error(`Update status failed: ${err.message}`);
     return error(res, 500, 'Failed to update status.');
+  }
+};
+
+/**
+ * PATCH /api/reports/:id/resolve — Mark a report as resolved
+ */
+exports.resolveReport = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { resolution_notes } = req.body;
+    const resolvedBy = req.user.id;
+    const imageFile = req.file;
+
+    if (!resolution_notes || resolution_notes.trim().length < 10) {
+      return error(res, 400, 'Resolution notes are required and must be at least 10 characters.');
+    }
+
+    // Check if the report exists and has an acceptable status
+    const checkReport = await db.query(
+      'SELECT id, status, reported_by, issue_type, address_text FROM reports WHERE id = $1',
+      [id]
+    );
+
+    if (checkReport.rows.length === 0) {
+      return error(res, 404, 'Report not found.');
+    }
+
+    const currentReport = checkReport.rows[0];
+    const allowedStatuses = ['ai_verified', 'confirmed', 'in_progress', 'volunteer_assigned'];
+    if (!allowedStatuses.includes(currentReport.status)) {
+      return error(res, 400, `Cannot resolve a report that is currently in '${currentReport.status}' status. Only reports that are AI Verified or Assigned can be resolved.`);
+    }
+
+    // Handle resolution image url
+    let resolutionImageUrl = null;
+    if (imageFile) {
+      resolutionImageUrl = `/uploads/${imageFile.filename}`;
+    }
+
+    // Update the report
+    const result = await db.query(
+      `UPDATE reports 
+       SET status = 'resolved',
+           resolved_at = NOW(),
+           resolved_by = $1,
+           resolution_notes = $2,
+           resolution_image_url = $3
+       WHERE id = $4
+       RETURNING *`,
+      [resolvedBy, resolution_notes, resolutionImageUrl, id]
+    );
+
+    const updatedReport = result.rows[0];
+
+    // Trigger Notification for the original reporter
+    const notificationController = require('./notificationController');
+    const issueTypeName = currentReport.issue_type === 'pothole' ? 'Pothole' : 'Garbage';
+    const addressInfo = currentReport.address_text ? ` at ${currentReport.address_text}` : '';
+    
+    await notificationController.createNotification(
+      currentReport.reported_by,
+      'Issue Resolved!',
+      `Great news! The ${issueTypeName} report${addressInfo} has been successfully resolved by BBMP inspectors. Thank you for your active civic participation!`,
+      id,
+      'success'
+    );
+
+    return success(res, 200, 'Report marked as resolved successfully.', { report: updatedReport });
+  } catch (err) {
+    logger.error(`Resolve report failed: ${err.message}`);
+    return error(res, 500, 'Failed to resolve report.');
   }
 };

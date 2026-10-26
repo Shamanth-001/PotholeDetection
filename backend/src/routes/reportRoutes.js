@@ -29,5 +29,6 @@ router.post('/', auth, upload.single('image'), reportController.createReport);
 router.get('/:id', auth, reportController.getReportById);
 router.post('/:id/upvote', auth, reportController.upvoteReport);
 router.patch('/:id/status', auth, roleGuard(['admin']), reportController.updateStatus);
+router.patch('/:id/resolve', auth, roleGuard(['admin']), upload.single('resolution_photo'), reportController.resolveReport);
 
 module.exports = router;

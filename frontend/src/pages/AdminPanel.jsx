@@ -8,6 +8,7 @@ import { MAP_CONFIG, ISSUE_TYPES, getIssueColor } from '../utils/constants';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { CheckCircle, MapPin, Clock, AlertTriangle, Users, Layers, BarChart3, Activity, Plus, Calendar, Send, Zap } from 'lucide-react';
 import { useNotificationStore } from '../store';
+import ResolveReportModal from '../components/admin/ResolveReportModal';
 
 
 function AdminHeatmap({ points }) {
@@ -49,6 +50,7 @@ export default function AdminPanel() {
   const [recentReports, setRecentReports] = useState([]);
   const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(true);
+  const [selectedResolveReport, setSelectedResolveReport] = useState(null);
 
   // Drive creation form
   const [driveForm, setDriveForm] = useState({
@@ -310,10 +312,11 @@ export default function AdminPanel() {
           <div className="gov-card overflow-hidden">
             <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest">
               <div className="col-span-2">Timestamp</div>
-              <div className="col-span-2">Issue Type</div>
-              <div className="col-span-5">AI Decision Reasoning</div>
+              <div className="col-span-1">Issue</div>
+              <div className="col-span-4">AI Decision Reasoning / Notes</div>
               <div className="col-span-2">Confidence</div>
               <div className="col-span-1">Status</div>
+              <div className="col-span-2 text-right">Action</div>
             </div>
             <div className="divide-y divide-gray-50">
               {recentReports.length > 0 ? recentReports.map((report, i) => (
@@ -321,13 +324,15 @@ export default function AdminPanel() {
                   <div className="col-span-2 text-xs font-medium text-gray-500">
                     {new Date(report.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
-                  <div className="col-span-2">
+                  <div className="col-span-1">
                     <span className="text-xs font-bold text-gray-900 capitalize">{report.issue_type}</span>
                   </div>
-                  <div className="col-span-5 text-xs text-gray-600 italic font-medium">
-                    {report.ai_confidence > 0.7 
-                      ? `"Object matched ${report.issue_type} criteria with high spatial probability."`
-                      : `"Inconclusive features; flagged for manual ward engineer review."`
+                  <div className="col-span-4 text-xs text-gray-600 italic font-medium truncate-2-lines">
+                    {report.status === 'resolved' 
+                      ? `Resolved: "${report.resolution_notes}"`
+                      : report.ai_confidence > 0.7 
+                        ? `"Object matched ${report.issue_type} criteria with high spatial probability."`
+                        : `"Inconclusive features; flagged for manual review."`
                     }
                   </div>
                   <div className="col-span-2">
@@ -338,9 +343,27 @@ export default function AdminPanel() {
                   </div>
                   <div className="col-span-1">
                     <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${
+                      report.status === 'resolved' ? 'bg-green-100 text-green-700' :
                       report.status === 'ai_verified' ? 'bg-green-100 text-green-700' : 
                       'bg-amber-100 text-amber-700'
-                    }`}>{report.status === 'ai_verified' ? 'Verified' : 'Pending'}</span>
+                    }`}>{
+                      report.status === 'resolved' ? 'Resolved' :
+                      report.status === 'ai_verified' ? 'Verified' : 'Pending'
+                    }</span>
+                  </div>
+                  <div className="col-span-2 text-right">
+                    {['ai_verified', 'confirmed', 'in_progress', 'volunteer_assigned'].includes(report.status) ? (
+                      <button
+                        onClick={() => setSelectedResolveReport(report)}
+                        className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
+                      >
+                        Resolve
+                      </button>
+                    ) : report.status === 'resolved' ? (
+                      <span className="text-xs font-semibold text-green-600">Complete</span>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
                   </div>
                 </div>
               )) : (
@@ -349,6 +372,27 @@ export default function AdminPanel() {
             </div>
           </div>
         </div>
+      )}
+
+      {selectedResolveReport && (
+        <ResolveReportModal
+          report={selectedResolveReport}
+          onClose={() => setSelectedResolveReport(null)}
+          onResolveSuccess={(updatedReport) => {
+            setRecentReports(prev => prev.map(r => r.id === updatedReport.id ? updatedReport : r));
+            setAnalytics(prev => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                overview: {
+                  ...prev.overview,
+                  resolved: (prev.overview.resolved || 0) + 1,
+                  pending: Math.max((prev.overview.pending || 0) - 1, 0)
+                }
+              };
+            });
+          }}
+        />
       )}
     </div>
   );

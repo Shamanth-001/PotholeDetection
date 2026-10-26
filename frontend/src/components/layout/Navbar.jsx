@@ -3,15 +3,23 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore, useUIStore, useNotificationStore } from '../../store';
 import { Bell, Globe, User, LogOut, Mail, Phone, ShieldCheck, Info, Star } from 'lucide-react';
 
+import { useEffect } from 'react';
+
 export default function Navbar() {
-  const { logout } = useAuthStore();
+  const { logout, isAuthenticated } = useAuthStore();
   const { language, setLanguage } = useUIStore();
-  const { notifications, markAllRead } = useNotificationStore();
+  const { notifications, unreadCount, fetchNotifications, markAllRead } = useNotificationStore();
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showLegal, setShowLegal] = useState(null);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 25000);
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
 
   const handleLogout = () => { logout(); navigate('/'); };
   const toggleLanguage = () => setLanguage(language === 'en' ? 'kn' : 'en');
@@ -95,8 +103,12 @@ export default function Navbar() {
                         </div>
                         <div>
                           <div className="text-sm font-bold text-gray-900 group-hover:text-gov-900">{n.title}</div>
-                          <div className="text-xs text-gray-500 line-clamp-2 mt-0.5">{n.desc}</div>
-                          <div className="text-[10px] font-medium text-gray-400 mt-2">{n.time}</div>
+                          <div className="text-xs text-gray-500 line-clamp-2 mt-0.5">{n.message}</div>
+                          <div className="text-[10px] font-medium text-gray-400 mt-2">
+                            {new Date(n.created_at).toLocaleDateString(language === 'en' ? 'en-US' : 'kn-IN', {
+                              month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                            })}
+                          </div>
                         </div>
                       </div>
                     </div>
